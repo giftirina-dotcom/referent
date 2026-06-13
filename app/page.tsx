@@ -1,8 +1,9 @@
+import ReferentApp from "./components/referent-app";
+
 export default function Home() {
   return (
-    <main>
-      <h1>Референт</h1>
-      <p>Я изучаю Next.js</p>
+    <main className="min-h-screen px-4 py-10 sm:px-6 lg:px-8">
+      <ReferentApp />
     </main>
   );
 }

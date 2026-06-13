@@ -1,0 +1,157 @@
+"use client";
+
+import { FormEvent, useState } from "react";
+
+type Action = "summary" | "theses" | "telegram";
+
+const ACTIONS: { id: Action; label: string }[] = [
+  { id: "summary", label: "О чем статья?" },
+  { id: "theses", label: "Тезисы" },
+  { id: "telegram", label: "Пост для Telegram" },
+];
+
+const ACTION_LABELS: Record<Action, string> = {
+  summary: "Краткое содержание",
+  theses: "Тезисы",
+  telegram: "Пост для Telegram",
+};
+
+function isValidUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+export default function ReferentApp() {
+  const [url, setUrl] = useState("");
+  const [activeAction, setActiveAction] = useState<Action | null>(null);
+  const [result, setResult] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleAction(action: Action) {
+    const trimmedUrl = url.trim();
+
+    if (!trimmedUrl) {
+      setError("Введите URL англоязычной статьи.");
+      return;
+    }
+
+    if (!isValidUrl(trimmedUrl)) {
+      setError("Укажите корректный URL, начинающийся с http:// или https://.");
+      return;
+    }
+
+    setError("");
+    setActiveAction(action);
+    setLoading(true);
+    setResult("");
+
+    // Заглушка до подключения парсера и AI
+    await new Promise((resolve) => setTimeout(resolve, 600));
+
+    setResult(
+      `Результат «${ACTION_LABELS[action]}» для статьи:\n${trimmedUrl}\n\nЗдесь появится сгенерированный текст после подключения парсера и AI.`,
+    );
+    setLoading(false);
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    void handleAction(activeAction ?? "summary");
+  }
+
+  return (
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-8">
+      <header className="space-y-2">
+        <h1 className="text-3xl font-semibold tracking-tight text-zinc-900">
+          Референт
+        </h1>
+        <p className="text-zinc-600">
+          Вставьте ссылку на англоязычную статью и выберите, что нужно
+          сгенерировать.
+        </p>
+      </header>
+
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="space-y-2">
+          <label
+            htmlFor="article-url"
+            className="block text-sm font-medium text-zinc-800"
+          >
+            URL англоязычной статьи
+          </label>
+          <input
+            id="article-url"
+            type="url"
+            inputMode="url"
+            placeholder="https://example.com/article"
+            value={url}
+            onChange={(event) => setUrl(event.target.value)}
+            className="w-full rounded-xl border border-zinc-300 bg-white px-4 py-3 text-zinc-900 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
+            autoComplete="url"
+          />
+          {error ? (
+            <p className="text-sm text-red-600" role="alert">
+              {error}
+            </p>
+          ) : null}
+        </div>
+
+        <div className="flex flex-wrap gap-3">
+          {ACTIONS.map((action) => {
+            const isActive = activeAction === action.id;
+
+            return (
+              <button
+                key={action.id}
+                type="button"
+                disabled={loading}
+                onClick={() => void handleAction(action.id)}
+                className={`rounded-xl px-4 py-2.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                  isActive
+                    ? "bg-sky-600 text-white shadow-sm hover:bg-sky-700"
+                    : "border border-zinc-300 bg-white text-zinc-800 hover:border-zinc-400 hover:bg-zinc-50"
+                }`}
+              >
+                {action.label}
+              </button>
+            );
+          })}
+        </div>
+      </form>
+
+      <section
+        aria-live="polite"
+        className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm"
+      >
+        <div className="mb-4 flex items-center justify-between gap-4">
+          <h2 className="text-lg font-medium text-zinc-900">Результат</h2>
+          {activeAction ? (
+            <span className="rounded-full bg-sky-50 px-3 py-1 text-xs font-medium text-sky-700">
+              {ACTION_LABELS[activeAction]}
+            </span>
+          ) : null}
+        </div>
+
+        {loading ? (
+          <div className="flex min-h-48 items-center justify-center gap-3 text-zinc-500">
+            <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-zinc-300 border-t-sky-600" />
+            <span>Генерация ответа...</span>
+          </div>
+        ) : result ? (
+          <div className="min-h-48 whitespace-pre-wrap text-sm leading-7 text-zinc-800">
+            {result}
+          </div>
+        ) : (
+          <div className="flex min-h-48 items-center justify-center rounded-xl border border-dashed border-zinc-200 bg-zinc-50 px-6 text-center text-sm text-zinc-500">
+            Результат появится здесь после выбора действия.
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
