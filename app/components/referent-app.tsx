@@ -10,6 +10,27 @@ const ACTIONS: { id: Action; label: string }[] = [
   { id: "telegram", label: "Пост для Telegram" },
 ];
 
+const ACTION_BUTTON_STYLES: Record<
+  Action,
+  { default: string; active: string }
+> = {
+  summary: {
+    default:
+      "border border-green-300 bg-green-200 text-green-950 hover:bg-green-300",
+    active: "border border-green-400 bg-green-400 text-green-950 shadow-sm",
+  },
+  theses: {
+    default:
+      "border border-orange-300 bg-orange-200 text-orange-950 hover:bg-orange-300",
+    active: "border border-orange-400 bg-orange-400 text-orange-950 shadow-sm",
+  },
+  telegram: {
+    default:
+      "border border-purple-300 bg-purple-200 text-purple-950 hover:bg-purple-300",
+    active: "border border-purple-400 bg-purple-400 text-purple-950 shadow-sm",
+  },
+};
+
 const ACTION_LABELS: Record<Action, string> = {
   summary: "Краткое содержание",
   theses: "Тезисы",
@@ -68,7 +89,7 @@ export default function ReferentApp() {
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-8">
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight text-zinc-900">
-          Референт
+          Референт-переводчик с ИИ-обработкой
         </h1>
         <p className="text-zinc-600">
           Вставьте ссылку на англоязычную статью и выберите, что нужно
@@ -101,26 +122,29 @@ export default function ReferentApp() {
           ) : null}
         </div>
 
-        <div className="flex flex-wrap gap-3">
-          {ACTIONS.map((action) => {
-            const isActive = activeAction === action.id;
+        <div className="space-y-2">
+          <p className="text-sm font-medium text-zinc-800">Выберите действие</p>
+          <div className="flex flex-wrap gap-3">
+            {ACTIONS.map((action) => {
+              const isActive = activeAction === action.id;
 
-            return (
-              <button
-                key={action.id}
-                type="button"
-                disabled={loading}
-                onClick={() => void handleAction(action.id)}
-                className={`rounded-xl px-4 py-2.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60 ${
-                  isActive
-                    ? "bg-sky-600 text-white shadow-sm hover:bg-sky-700"
-                    : "border border-zinc-300 bg-white text-zinc-800 hover:border-zinc-400 hover:bg-zinc-50"
-                }`}
-              >
-                {action.label}
-              </button>
-            );
-          })}
+              return (
+                <button
+                  key={action.id}
+                  type="button"
+                  disabled={loading}
+                  onClick={() => void handleAction(action.id)}
+                  className={`rounded-xl px-4 py-2.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                    isActive
+                      ? ACTION_BUTTON_STYLES[action.id].active
+                      : ACTION_BUTTON_STYLES[action.id].default
+                  }`}
+                >
+                  {action.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </form>
 
