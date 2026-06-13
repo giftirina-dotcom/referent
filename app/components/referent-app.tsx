@@ -37,6 +37,12 @@ const ACTION_LABELS: Record<Action, string> = {
   telegram: "Пост для Telegram",
 };
 
+type ParsedArticle = {
+  date: string | null;
+  title: string | null;
+  content: string | null;
+};
+
 function isValidUrl(value: string) {
   try {
     const url = new URL(value);
@@ -71,13 +77,32 @@ export default function ReferentApp() {
     setLoading(true);
     setResult("");
 
-    // Заглушка до подключения парсера и AI
-    await new Promise((resolve) => setTimeout(resolve, 600));
+    try {
+      const response = await fetch("/api/parse", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ url: trimmedUrl }),
+      });
 
-    setResult(
-      `Результат «${ACTION_LABELS[action]}» для статьи:\n${trimmedUrl}\n\nЗдесь появится сгенерированный текст после подключения парсера и AI.`,
-    );
-    setLoading(false);
+      const data = (await response.json()) as ParsedArticle & { error?: string };
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "Не удалось распарсить статью.");
+      }
+
+      setResult(JSON.stringify(data, null, 2));
+    } catch (parseError) {
+      const message =
+        parseError instanceof Error
+          ? parseError.message
+          : "Не удалось распарсить статью.";
+      setError(message);
+      setResult("");
+    } finally {
+      setLoading(false);
+    }
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -164,10 +189,10 @@ export default function ReferentApp() {
         {loading ? (
           <div className="flex min-h-48 items-center justify-center gap-3 text-zinc-500">
             <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-zinc-300 border-t-sky-600" />
-            <span>Генерация ответа...</span>
+            <span>Парсинг статьи...</span>
           </div>
         ) : result ? (
-          <div className="min-h-48 whitespace-pre-wrap text-sm leading-7 text-zinc-800">
+          <div className="min-h-48 overflow-x-auto whitespace-pre-wrap rounded-xl bg-zinc-50 p-4 font-mono text-xs leading-6 text-zinc-800 sm:text-sm">
             {result}
           </div>
         ) : (
