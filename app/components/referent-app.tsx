@@ -1,5 +1,6 @@
 "use client";
 
+import BlogContent from "./blog-content";
 import { FormEvent, useState } from "react";
 
 type Action = "summary" | "theses" | "telegram";
@@ -37,12 +38,6 @@ const ACTION_LABELS: Record<Action, string> = {
   telegram: "Пост для Telegram",
 };
 
-type ParsedArticle = {
-  date: string | null;
-  title: string | null;
-  content: string | null;
-};
-
 function isValidUrl(value: string) {
   try {
     const url = new URL(value);
@@ -78,26 +73,26 @@ export default function ReferentApp() {
     setResult("");
 
     try {
-      const response = await fetch("/api/parse", {
+      const response = await fetch("/api/process", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ url: trimmedUrl }),
+        body: JSON.stringify({ url: trimmedUrl, action }),
       });
 
-      const data = (await response.json()) as ParsedArticle & { error?: string };
+      const data = (await response.json()) as { result?: string; error?: string };
 
       if (!response.ok) {
-        throw new Error(data.error ?? "Не удалось распарсить статью.");
+        throw new Error(data.error ?? "Не удалось обработать статью.");
       }
 
-      setResult(JSON.stringify(data, null, 2));
+      setResult(data.result ?? "");
     } catch (parseError) {
       const message =
         parseError instanceof Error
           ? parseError.message
-          : "Не удалось распарсить статью.";
+          : "Не удалось обработать статью.";
       setError(message);
       setResult("");
     } finally {
@@ -189,12 +184,10 @@ export default function ReferentApp() {
         {loading ? (
           <div className="flex min-h-48 items-center justify-center gap-3 text-zinc-500">
             <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-zinc-300 border-t-sky-600" />
-            <span>Парсинг статьи...</span>
+            <span>Парсинг и перевод статьи...</span>
           </div>
         ) : result ? (
-          <div className="min-h-48 overflow-x-auto whitespace-pre-wrap rounded-xl bg-zinc-50 p-4 font-mono text-xs leading-6 text-zinc-800 sm:text-sm">
-            {result}
-          </div>
+          <BlogContent content={result} />
         ) : (
           <div className="flex min-h-48 items-center justify-center rounded-xl border border-dashed border-zinc-200 bg-zinc-50 px-6 text-center text-sm text-zinc-500">
             Результат появится здесь после выбора действия.

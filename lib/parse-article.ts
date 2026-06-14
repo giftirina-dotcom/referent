@@ -171,13 +171,16 @@ export function parseArticleHtml(html: string): ParsedArticle {
   };
 }
 
+const BROWSER_HEADERS = {
+  "User-Agent":
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+  Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+  "Accept-Language": "en-US,en;q=0.9,ru;q=0.8",
+};
+
 export async function fetchAndParseArticle(url: string): Promise<ParsedArticle> {
   const response = await fetch(url, {
-    headers: {
-      "User-Agent":
-        "Mozilla/5.0 (compatible; ReferentBot/1.0; +https://localhost)",
-      Accept: "text/html,application/xhtml+xml",
-    },
+    headers: BROWSER_HEADERS,
     redirect: "follow",
   });
 
