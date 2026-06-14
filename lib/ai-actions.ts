@@ -1,6 +1,6 @@
 import type { ParsedArticle } from "@/lib/parse-article";
 
-export type AiAction = "summary" | "theses" | "telegram";
+export type AiAction = "translate" | "summary" | "theses" | "telegram";
 
 const MAX_CONTENT_LENGTH = 12_000;
 
@@ -8,6 +8,7 @@ const MARKDOWN_FORMAT =
   "Форматируй ответ в Markdown: один заголовок первого уровня (#), подзаголовки (##), абзацы, списки (-). Не используй кодовые блоки.";
 
 const ACTION_INSTRUCTIONS: Record<AiAction, string> = {
+  translate: `${MARKDOWN_FORMAT}\n\nПереведи статью на русский язык полностью. Структура ответа:\n# перевод заголовка\n\nтекст перевода абзацами, сохраняя структуру оригинала.`,
   summary: `${MARKDOWN_FORMAT}\n\nПереведи статью на русский язык. Структура ответа:\n# перевод заголовка\n\nтекст перевода абзацами\n\n## О чём статья\n\n2–4 предложения с кратким описанием.`,
   theses: `${MARKDOWN_FORMAT}\n\nПереведи статью на русский язык. Структура ответа:\n# перевод заголовка\n\n## Перевод\n\nтекст перевода абзацами\n\n## Тезисы\n\nмаркированный список ключевых мыслей.`,
   telegram: `${MARKDOWN_FORMAT}\n\nПереведи статью на русский и составь пост для Telegram (до 1000 символов). Структура:\n# цепляющий заголовок\n\nкороткий вводный абзац\n\n- 2–3 ключевых пункта`,

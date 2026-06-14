@@ -1,4 +1,5 @@
 import { fetchAndParseArticle } from "@/lib/parse-article";
+import { ArticleUnavailableError } from "@/lib/article-errors";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
@@ -34,6 +35,13 @@ export async function POST(request: Request) {
 
     return NextResponse.json(article);
   } catch (error) {
+    if (error instanceof ArticleUnavailableError) {
+      return NextResponse.json(
+        { error: error.message, code: "unavailable" },
+        { status: 422 },
+      );
+    }
+
     const message =
       error instanceof Error ? error.message : "Не удалось распарсить статью.";
 

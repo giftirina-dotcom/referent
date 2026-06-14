@@ -1,3 +1,8 @@
+import {
+  ArticleUnavailableError,
+  throwForFetchFailure,
+  throwForHttpStatus,
+} from "@/lib/article-errors";
 import * as cheerio from "cheerio";
 
 export type ParsedArticle = {
@@ -179,15 +184,29 @@ const BROWSER_HEADERS = {
 };
 
 export async function fetchAndParseArticle(url: string): Promise<ParsedArticle> {
-  const response = await fetch(url, {
-    headers: BROWSER_HEADERS,
-    redirect: "follow",
-  });
+  let response: Response;
+
+  try {
+    response = await fetch(url, {
+      headers: BROWSER_HEADERS,
+      redirect: "follow",
+    });
+  } catch {
+    throwForFetchFailure();
+  }
 
   if (!response.ok) {
-    throw new Error(`Не удалось загрузить страницу: HTTP ${response.status}`);
+    throwForHttpStatus(response.status);
   }
 
   const html = await response.text();
-  return parseArticleHtml(html);
+  const article = parseArticleHtml(html);
+
+  if (!article.title && !article.content) {
+    throw new ArticleUnavailableError(
+      "На этой странице не удалось найти текст статьи. Возможно, нужен другой URL.",
+    );
+  }
+
+  return article;
 }
