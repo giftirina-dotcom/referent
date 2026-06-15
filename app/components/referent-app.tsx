@@ -5,7 +5,7 @@ import {
   ArticleUnavailableError,
   isArticleUnavailableError,
 } from "@/lib/article-errors";
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 
 type Action = "summary" | "theses" | "telegram";
 
@@ -137,6 +137,7 @@ export default function ReferentApp() {
   const [loadingParse, setLoadingParse] = useState(false);
   const [loadingTranslate, setLoadingTranslate] = useState(false);
   const [error, setError] = useState("");
+  const requestIdRef = useRef(0);
 
   function validateUrl() {
     const trimmedUrl = url.trim();
@@ -161,6 +162,8 @@ export default function ReferentApp() {
       return;
     }
 
+    const requestId = ++requestIdRef.current;
+
     setError("");
     setResultBadge(RESULT_BADGES[action]);
     if (action !== "translate") {
@@ -174,6 +177,10 @@ export default function ReferentApp() {
 
     try {
       const article = await fetchArticle(trimmedUrl);
+      if (requestId !== requestIdRef.current) {
+        return;
+      }
+
       setLoadingParse(false);
       setLoadingTranslate(true);
 
@@ -188,6 +195,10 @@ export default function ReferentApp() {
         error?: string;
       };
 
+      if (requestId !== requestIdRef.current) {
+        return;
+      }
+
       if (!response.ok) {
         throw new Error(data.error ?? "Не удалось перевести статью.");
       }
@@ -195,6 +206,10 @@ export default function ReferentApp() {
       setResultIsNotice(false);
       setResult(data.result ?? "");
     } catch (actionError) {
+      if (requestId !== requestIdRef.current) {
+        return;
+      }
+
       if (isArticleUnavailableError(actionError)) {
         setResultBadge(null);
         setResultIsNotice(true);
@@ -208,8 +223,10 @@ export default function ReferentApp() {
           : "Не удалось обработать статью.";
       setError(message);
     } finally {
-      setLoadingParse(false);
-      setLoadingTranslate(false);
+      if (requestId === requestIdRef.current) {
+        setLoadingParse(false);
+        setLoadingTranslate(false);
+      }
     }
   }
 
