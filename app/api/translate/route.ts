@@ -3,12 +3,7 @@ import type { ParsedArticle } from "@/lib/parse-article";
 import { chatCompletion } from "@/lib/openrouter";
 import { NextResponse } from "next/server";
 
-const VALID_ACTIONS = new Set<AiAction>([
-  "translate",
-  "summary",
-  "theses",
-  "telegram",
-]);
+const VALID_ACTIONS = new Set<AiAction>(["translate"]);
 
 export async function POST(request: Request) {
   try {

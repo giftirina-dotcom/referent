@@ -49,6 +49,12 @@ const RESULT_BADGES: Record<Action | "translate", string> = {
   telegram: "Пост для Telegram",
 };
 
+const ACTION_STUBS: Record<Action, string> = {
+  summary: "Краткое содержание статьи — функция в разработке.",
+  theses: "Тезисы статьи — функция в разработке.",
+  telegram: "Пост для Telegram — функция в разработке.",
+};
+
 function isValidUrl(value: string) {
   try {
     const url = new URL(value);
@@ -156,7 +162,19 @@ export default function ReferentApp() {
     return trimmedUrl;
   }
 
-  async function runTranslation(action: Action | "translate") {
+  function handleActionStub(action: Action) {
+    if (isBusy) {
+      return;
+    }
+
+    setError("");
+    setActiveAction(action);
+    setResultBadge(RESULT_BADGES[action]);
+    setResultIsNotice(true);
+    setResult(ACTION_STUBS[action]);
+  }
+
+  async function runTranslation() {
     const trimmedUrl = validateUrl();
     if (!trimmedUrl) {
       return;
@@ -165,12 +183,8 @@ export default function ReferentApp() {
     const requestId = ++requestIdRef.current;
 
     setError("");
-    setResultBadge(RESULT_BADGES[action]);
-    if (action !== "translate") {
-      setActiveAction(action);
-    } else {
-      setActiveAction(null);
-    }
+    setActiveAction(null);
+    setResultBadge(RESULT_BADGES.translate);
     setResult("");
     setResultIsNotice(false);
     setLoadingParse(true);
@@ -187,7 +201,7 @@ export default function ReferentApp() {
       const response = await fetch("/api/translate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ article, action }),
+        body: JSON.stringify({ article, action: "translate" }),
       });
 
       const data = (await response.json()) as {
@@ -232,12 +246,9 @@ export default function ReferentApp() {
 
   const isBusy = loadingParse || loadingTranslate;
 
-  const loadingText =
-    loadingTranslate && activeAction
-      ? "Тружусь, потерпите..."
-      : loadingParse
-        ? "Загрузка и разбор статьи..."
-        : "Перевод и обработка через AI...";
+  const loadingText = loadingParse
+    ? "Загрузка и разбор статьи..."
+    : "Перевод и обработка через AI...";
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
@@ -280,7 +291,7 @@ export default function ReferentApp() {
           <button
             type="button"
             disabled={isBusy}
-            onClick={() => void runTranslation("translate")}
+            onClick={() => void runTranslation()}
             className="w-full rounded-xl bg-red-500 px-4 py-3.5 text-base font-semibold text-white shadow-sm transition hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Перевести
@@ -297,7 +308,7 @@ export default function ReferentApp() {
                     key={action.id}
                     type="button"
                     disabled={isBusy}
-                    onClick={() => void runTranslation(action.id)}
+                    onClick={() => handleActionStub(action.id)}
                     className={`rounded-xl px-4 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${
                       isActive
                         ? ACTION_BUTTON_STYLES[action.id].active
