@@ -2,7 +2,9 @@
 
 import BlogContent from "./blog-content";
 import {
+  AiServiceError,
   ArticleUnavailableError,
+  isAiServiceError,
   isArticleUnavailableError,
 } from "@/lib/article-errors";
 import { useRef, useState, type ReactNode } from "react";
@@ -42,18 +44,14 @@ const ACTION_BUTTON_STYLES: Record<
   },
 };
 
-const RESULT_BADGES: Record<Action | "translate", string> = {
-  translate: "Перевод",
+const RESULT_BADGES: Record<Action, string> = {
   summary: "Краткое содержание",
   theses: "Тезисы",
   telegram: "Пост для Telegram",
 };
 
-const ACTION_STUBS: Record<Action, string> = {
-  summary: "Краткое содержание статьи — функция в разработке.",
-  theses: "Тезисы статьи — функция в разработке.",
-  telegram: "Пост для Telegram — функция в разработке.",
-};
+/** Таймаут ожидания ответа /api/translate в браузере (мс). */
+const TRANSLATE_CLIENT_TIMEOUT_MS = 180_000;
 
 function isValidUrl(value: string) {
   try {
@@ -162,19 +160,7 @@ export default function ReferentApp() {
     return trimmedUrl;
   }
 
-  function handleActionStub(action: Action) {
-    if (isBusy) {
-      return;
-    }
-
-    setError("");
-    setActiveAction(action);
-    setResultBadge(RESULT_BADGES[action]);
-    setResultIsNotice(true);
-    setResult(ACTION_STUBS[action]);
-  }
-
-  async function runTranslation() {
+  async function runAction(action: Action) {
     const trimmedUrl = validateUrl();
     if (!trimmedUrl) {
       return;
@@ -183,8 +169,8 @@ export default function ReferentApp() {
     const requestId = ++requestIdRef.current;
 
     setError("");
-    setActiveAction(null);
-    setResultBadge(RESULT_BADGES.translate);
+    setActiveAction(action);
+    setResultBadge(RESULT_BADGES[action]);
     setResult("");
     setResultIsNotice(false);
     setLoadingParse(true);
@@ -198,15 +184,44 @@ export default function ReferentApp() {
       setLoadingParse(false);
       setLoadingTranslate(true);
 
-      const response = await fetch("/api/translate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ article, action: "translate" }),
-      });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(
+        () => controller.abort(),
+        TRANSLATE_CLIENT_TIMEOUT_MS,
+      );
+
+      let response: Response;
+
+      try {
+        response = await fetch("/api/translate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            article,
+            action,
+            ...(action === "telegram" ? { sourceUrl: trimmedUrl } : {}),
+          }),
+          signal: controller.signal,
+        });
+      } catch (fetchError) {
+        if (
+          fetchError instanceof DOMException &&
+          fetchError.name === "AbortError"
+        ) {
+          throw new AiServiceError(
+            "ИИ слишком долго отвечает. Попробуйте более короткую статью или повторите позже.",
+          );
+        }
+
+        throw fetchError;
+      } finally {
+        clearTimeout(timeoutId);
+      }
 
       const data = (await response.json()) as {
         result?: string;
         error?: string;
+        code?: string;
       };
 
       if (requestId !== requestIdRef.current) {
@@ -214,7 +229,11 @@ export default function ReferentApp() {
       }
 
       if (!response.ok) {
-        throw new Error(data.error ?? "Не удалось перевести статью.");
+        if (data.code === "ai_error" && data.error) {
+          throw new AiServiceError(data.error);
+        }
+
+        throw new Error(data.error ?? "Не удалось обработать статью.");
       }
 
       setResultIsNotice(false);
@@ -226,6 +245,12 @@ export default function ReferentApp() {
 
       if (isArticleUnavailableError(actionError)) {
         setResultBadge(null);
+        setResultIsNotice(true);
+        setResult(actionError.message);
+        return;
+      }
+
+      if (isAiServiceError(actionError)) {
         setResultIsNotice(true);
         setResult(actionError.message);
         return;
@@ -248,7 +273,7 @@ export default function ReferentApp() {
 
   const loadingText = loadingParse
     ? "Загрузка и разбор статьи..."
-    : "Перевод и обработка через AI...";
+    : "Тружусь, потерпите...";
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
@@ -288,15 +313,6 @@ export default function ReferentApp() {
             ) : null}
           </div>
 
-          <button
-            type="button"
-            disabled={isBusy}
-            onClick={() => void runTranslation()}
-            className="w-full rounded-xl bg-red-500 px-4 py-3.5 text-base font-semibold text-white shadow-sm transition hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Перевести
-          </button>
-
           <div className="space-y-3">
             <p className="text-sm font-medium text-zinc-800">Выберите действие</p>
             <div className="flex flex-wrap gap-3">
@@ -308,7 +324,7 @@ export default function ReferentApp() {
                     key={action.id}
                     type="button"
                     disabled={isBusy}
-                    onClick={() => handleActionStub(action.id)}
+                    onClick={() => void runAction(action.id)}
                     className={`rounded-xl px-4 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${
                       isActive
                         ? ACTION_BUTTON_STYLES[action.id].active
