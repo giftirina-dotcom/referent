@@ -17,7 +17,7 @@ import {
   VALIDATION_EMPTY_URL_MESSAGE,
   VALIDATION_INVALID_URL_MESSAGE,
 } from "@/lib/client-error-messages";
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 
 type Action = "summary" | "theses" | "telegram";
 
@@ -84,6 +84,15 @@ function isValidUrl(value: string) {
   }
 }
 
+const CLEAR_BUTTON_CLASS =
+  "rounded-xl border border-zinc-200 bg-zinc-100 px-4 py-2.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-50";
+
+const COPY_BUTTON_CLASS =
+  "rounded-xl border border-sky-300 bg-sky-100 px-4 py-2.5 text-sm font-medium text-sky-900 transition hover:bg-sky-200";
+
+const COPIED_BUTTON_CLASS =
+  "rounded-xl border border-amber-300 bg-amber-100 px-4 py-2.5 text-sm font-medium text-amber-950 transition";
+
 function ResultBox({
   title,
   badge,
@@ -91,6 +100,8 @@ function ResultBox({
   loadingText,
   emptyText,
   filled,
+  sectionRef,
+  headerActions,
   children,
 }: {
   title: string;
@@ -99,20 +110,26 @@ function ResultBox({
   loadingText?: string;
   emptyText: string;
   filled?: boolean;
+  sectionRef?: RefObject<HTMLElement | null>;
+  headerActions?: ReactNode;
   children?: ReactNode;
 }) {
   return (
     <section
+      ref={sectionRef}
       aria-live="polite"
       className="rounded-xl border border-zinc-200 bg-zinc-50/50 p-4 sm:p-5"
     >
-      <div className="mb-4 flex items-center justify-between gap-4">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-medium text-zinc-900">{title}</h2>
-        {badge ? (
-          <span className="rounded-full bg-sky-50 px-3 py-1 text-xs font-medium text-sky-700">
-            {badge}
-          </span>
-        ) : null}
+        <div className="flex flex-wrap items-center gap-2">
+          {headerActions}
+          {badge ? (
+            <span className="rounded-full bg-sky-50 px-3 py-1 text-xs font-medium text-sky-700">
+              {badge}
+            </span>
+          ) : null}
+        </div>
       </div>
 
       {loading ? (
@@ -176,7 +193,67 @@ export default function ReferentApp() {
   const [loadingParse, setLoadingParse] = useState(false);
   const [loadingTranslate, setLoadingTranslate] = useState(false);
   const [error, setError] = useState("");
+  const [copyLabel, setCopyLabel] = useState("Копировать");
   const requestIdRef = useRef(0);
+  const resultSectionRef = useRef<HTMLElement>(null);
+  const copyResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function resetAll() {
+    requestIdRef.current += 1;
+
+    if (copyResetTimerRef.current) {
+      clearTimeout(copyResetTimerRef.current);
+      copyResetTimerRef.current = null;
+    }
+
+    setUrl("");
+    setActiveAction(null);
+    setResultBadge(null);
+    setResultIsNotice(false);
+    setResultNoticeKind(null);
+    setCopyLabel("Копировать");
+    setResult("");
+    setLoadingParse(false);
+    setLoadingTranslate(false);
+    setError("");
+    setCopyLabel("Копировать");
+  }
+
+  async function copyResult() {
+    if (!result) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(result);
+      setCopyLabel("Скопировано");
+
+      if (copyResetTimerRef.current) {
+        clearTimeout(copyResetTimerRef.current);
+      }
+
+      copyResetTimerRef.current = setTimeout(() => {
+        setCopyLabel("Копировать");
+        copyResetTimerRef.current = null;
+      }, 2000);
+    } catch {
+      setError("Не удалось скопировать текст. Попробуйте выделить и скопировать вручную.");
+    }
+  }
+
+  useEffect(() => {
+    if (result && !resultIsNotice) {
+      resultSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [result, resultIsNotice]);
+
+  useEffect(() => {
+    return () => {
+      if (copyResetTimerRef.current) {
+        clearTimeout(copyResetTimerRef.current);
+      }
+    };
+  }, []);
 
   function validateUrl() {
     const trimmedUrl = url.trim();
@@ -209,6 +286,7 @@ export default function ReferentApp() {
     setResult("");
     setResultIsNotice(false);
     setResultNoticeKind(null);
+    setCopyLabel("Копировать");
     setLoadingParse(true);
 
     try {
@@ -307,7 +385,7 @@ export default function ReferentApp() {
   const processStatus = loadingParse
     ? "Загружаю статью…"
     : loadingTranslate
-      ? "Пишу с помощью ИИ…"
+      ? "Обрабатываю с помощью ИИ…"
       : null;
 
   return (
@@ -352,7 +430,17 @@ export default function ReferentApp() {
           </div>
 
           <div className="space-y-3">
-            <p className="text-sm font-medium text-zinc-800">Выберите действие</p>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm font-medium text-zinc-800">Выберите действие</p>
+              <button
+                type="button"
+                title="Сбросить поле URL, результат, ошибки и состояния"
+                onClick={resetAll}
+                className={CLEAR_BUTTON_CLASS}
+              >
+                Очистить
+              </button>
+            </div>
             <div className="flex flex-wrap gap-3">
               {ACTIONS.map((action) => {
                 const isActive = activeAction === action.id;
@@ -391,7 +479,24 @@ export default function ReferentApp() {
             title="Результат"
             badge={resultBadge ?? undefined}
             filled={Boolean(result)}
+            sectionRef={resultSectionRef}
             emptyText="Здесь появится результат перевода."
+            headerActions={
+              result ? (
+                <button
+                  type="button"
+                  title="Скопировать результат в буфер обмена"
+                  onClick={() => void copyResult()}
+                  className={
+                    copyLabel === "Скопировано"
+                      ? COPIED_BUTTON_CLASS
+                      : COPY_BUTTON_CLASS
+                  }
+                >
+                  {copyLabel}
+                </button>
+              ) : null
+            }
           >
             {result ? (
               resultIsNotice ? (
