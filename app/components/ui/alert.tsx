@@ -97,7 +97,9 @@ export function Alert({
           {title ? (
             <p className={`font-medium leading-none ${styles.title}`}>{title}</p>
           ) : null}
-          <div className={`leading-6 ${styles.description}`}>{children}</div>
+          <div className={`min-w-0 break-words leading-6 [overflow-wrap:anywhere] ${styles.description}`}>
+            {children}
+          </div>
         </div>
       </div>
     </div>

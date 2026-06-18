@@ -85,13 +85,16 @@ function isValidUrl(value: string) {
 }
 
 const CLEAR_BUTTON_CLASS =
-  "rounded-xl border border-zinc-200 bg-zinc-100 px-4 py-2.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-50";
+  "w-full rounded-xl border border-zinc-200 bg-zinc-100 px-4 py-2.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto";
 
 const COPY_BUTTON_CLASS =
-  "rounded-xl border border-sky-300 bg-sky-100 px-4 py-2.5 text-sm font-medium text-sky-900 transition hover:bg-sky-200";
+  "w-full rounded-xl border border-sky-300 bg-sky-100 px-4 py-2.5 text-sm font-medium text-sky-900 transition hover:bg-sky-200 sm:w-auto";
 
 const COPIED_BUTTON_CLASS =
-  "rounded-xl border border-amber-300 bg-amber-100 px-4 py-2.5 text-sm font-medium text-amber-950 transition";
+  "w-full rounded-xl border border-amber-300 bg-amber-100 px-4 py-2.5 text-sm font-medium text-amber-950 transition sm:w-auto";
+
+const ACTION_BUTTON_BASE =
+  "w-full rounded-xl px-4 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 md:w-auto";
 
 function ResultBox({
   title,
@@ -120,12 +123,12 @@ function ResultBox({
       aria-live="polite"
       className="rounded-xl border border-zinc-200 bg-zinc-50/50 p-4 sm:p-5"
     >
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <h2 className="text-lg font-medium text-zinc-900">{title}</h2>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
           {headerActions}
           {badge ? (
-            <span className="rounded-full bg-sky-50 px-3 py-1 text-xs font-medium text-sky-700">
+            <span className="w-fit rounded-full bg-sky-50 px-3 py-1 text-xs font-medium text-sky-700">
               {badge}
             </span>
           ) : null}
@@ -140,7 +143,7 @@ function ResultBox({
       ) : filled ? (
         children
       ) : (
-        <div className="flex min-h-36 items-center justify-center rounded-xl border border-dashed border-zinc-200 bg-zinc-50 px-6 text-center text-sm text-zinc-500">
+        <div className="flex min-h-36 items-center justify-center rounded-xl border border-dashed border-zinc-200 bg-zinc-50 px-4 py-6 text-center text-sm text-zinc-500 sm:px-6">
           {emptyText}
         </div>
       )}
@@ -216,7 +219,6 @@ export default function ReferentApp() {
     setLoadingParse(false);
     setLoadingTranslate(false);
     setError("");
-    setCopyLabel("Копировать");
   }
 
   async function copyResult() {
@@ -389,19 +391,19 @@ export default function ReferentApp() {
       : null;
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
+    <div className="mx-auto flex w-full min-w-0 max-w-3xl flex-col gap-5 sm:gap-6">
       <header className="space-y-2">
-        <h1 className="text-3xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="text-2xl font-semibold tracking-tight text-balance text-zinc-900 sm:text-3xl">
           Референт-переводчик с ИИ-обработкой
         </h1>
-        <p className="text-zinc-600">
+        <p className="text-sm text-pretty text-zinc-600 sm:text-base">
           Вставьте ссылку на англоязычную статью и выберите, что нужно
           сгенерировать.
         </p>
       </header>
 
-      <div className="space-y-6 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6">
-        <div className="space-y-4">
+      <div className="space-y-4 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm sm:space-y-6 sm:p-6">
+        <div className="min-w-0 space-y-4">
           <div className="space-y-2">
             <label
               htmlFor="article-url"
@@ -416,7 +418,7 @@ export default function ReferentApp() {
               placeholder="Введите URL статьи, например: https://example.com/article"
               value={url}
               onChange={(event) => setUrl(event.target.value)}
-              className="w-full rounded-xl border border-zinc-300 bg-white px-4 py-3 text-zinc-900 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
+              className="w-full min-w-0 rounded-xl border border-zinc-300 bg-white px-4 py-3 text-base text-zinc-900 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 sm:text-sm"
               autoComplete="url"
             />
             <p className="text-xs text-zinc-500">
@@ -430,7 +432,7 @@ export default function ReferentApp() {
           </div>
 
           <div className="space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm font-medium text-zinc-800">Выберите действие</p>
               <button
                 type="button"
@@ -441,7 +443,7 @@ export default function ReferentApp() {
                 Очистить
               </button>
             </div>
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-col gap-3 md:flex-row md:flex-wrap">
               {ACTIONS.map((action) => {
                 const isActive = activeAction === action.id;
 
@@ -452,7 +454,7 @@ export default function ReferentApp() {
                     title={action.title}
                     disabled={isBusy}
                     onClick={() => void runAction(action.id)}
-                    className={`rounded-xl px-4 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                    className={`${ACTION_BUTTON_BASE} ${
                       isActive
                         ? ACTION_BUTTON_STYLES[action.id].active
                         : ACTION_BUTTON_STYLES[action.id].default
@@ -471,7 +473,7 @@ export default function ReferentApp() {
               className="flex items-center gap-2.5 rounded-lg border border-sky-100 bg-sky-50/80 px-4 py-2.5 text-sm text-sky-800"
             >
               <span className="inline-block h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-sky-200 border-t-sky-600" />
-              <span>{processStatus}</span>
+              <span className="min-w-0 text-pretty">{processStatus}</span>
             </div>
           ) : null}
 

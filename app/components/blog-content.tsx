@@ -3,12 +3,12 @@ import type { Components } from "react-markdown";
 
 const markdownComponents: Components = {
   h1: ({ children }) => (
-    <h1 className="mb-2 text-2xl font-bold leading-tight tracking-tight text-zinc-900 sm:text-3xl">
+    <h1 className="mb-2 text-xl font-bold leading-tight tracking-tight break-words text-zinc-900 sm:text-2xl md:text-3xl">
       {children}
     </h1>
   ),
   h2: ({ children }) => (
-    <h2 className="mt-8 mb-3 border-b border-zinc-200 pb-2 text-xl font-semibold text-zinc-900 first:mt-0">
+    <h2 className="mt-8 mb-3 border-b border-zinc-200 pb-2 text-lg font-semibold break-words text-zinc-900 first:mt-0 sm:text-xl">
       {children}
     </h2>
   ),
@@ -16,7 +16,9 @@ const markdownComponents: Components = {
     <h3 className="mt-6 mb-2 text-lg font-semibold text-zinc-800">{children}</h3>
   ),
   p: ({ children }) => (
-    <p className="mb-4 text-base leading-8 text-zinc-700 last:mb-0">{children}</p>
+    <p className="mb-4 text-base leading-7 break-words text-zinc-700 last:mb-0 sm:leading-8">
+      {children}
+    </p>
   ),
   ul: ({ children }) => (
     <ul className="mb-5 space-y-2 pl-1 text-zinc-700">{children}</ul>
@@ -44,7 +46,7 @@ const markdownComponents: Components = {
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="font-medium text-sky-700 underline decoration-sky-300 underline-offset-2 hover:text-sky-900"
+      className="break-all font-medium text-sky-700 underline decoration-sky-300 underline-offset-2 hover:text-sky-900 sm:break-words"
     >
       {children}
     </a>
@@ -57,7 +59,7 @@ type BlogContentProps = {
 
 export default function BlogContent({ content }: BlogContentProps) {
   return (
-    <article className="blog-content min-h-48 rounded-xl border border-zinc-100 bg-gradient-to-b from-white to-zinc-50/80 px-6 py-8 sm:px-8 [&_ol>li]:pl-0 [&_ol>li]:before:hidden">
+    <article className="blog-content min-h-48 min-w-0 rounded-xl border border-zinc-100 bg-gradient-to-b from-white to-zinc-50/80 px-4 py-6 break-words sm:px-6 sm:py-8 md:px-8 [overflow-wrap:anywhere] [&_ol>li]:pl-0 [&_ol>li]:before:hidden">
       <Markdown components={markdownComponents}>{content}</Markdown>
     </article>
   );
