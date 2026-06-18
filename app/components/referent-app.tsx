@@ -393,10 +393,10 @@ export default function ReferentApp() {
   return (
     <div className="mx-auto flex w-full min-w-0 max-w-3xl flex-col gap-5 sm:gap-6">
       <header className="space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight text-balance text-zinc-900 sm:text-3xl">
+        <h1 className="text-center text-2xl font-semibold tracking-tight text-balance text-zinc-900 sm:text-3xl">
           Референт-переводчик с ИИ-обработкой
         </h1>
-        <p className="text-sm text-pretty text-zinc-600 sm:text-base">
+        <p className="text-center text-sm text-pretty text-zinc-600 sm:text-base">
           Вставьте ссылку на англоязычную статью и выберите, что нужно
           сгенерировать.
         </p>
