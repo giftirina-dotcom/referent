@@ -515,7 +515,17 @@ export default function ReferentApp() {
                   {result}
                 </Alert>
               ) : (
-                <BlogContent content={result} />
+                <>
+                  {activeAction === "telegram" ? (
+                    <p className="mb-3 text-sm text-zinc-600">
+                      Знаков в посте:{" "}
+                      <span className="font-medium text-zinc-900">
+                        {result.length}
+                      </span>
+                    </p>
+                  ) : null}
+                  <BlogContent content={result} />
+                </>
               )
             ) : null}
           </ResultBox>
