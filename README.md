@@ -13,3 +13,4 @@ npm run dev
 Откройте [http://localhost:3000](http://localhost:3000) в браузере.
 
 PROJECT.md - описание проекта
+PLAN.md - план разработки

@@ -17,10 +17,22 @@ type ParsedArticle = {
   content: string | null;
 };
 
-const ACTIONS: { id: Action; label: string }[] = [
-  { id: "summary", label: "О чем статья?" },
-  { id: "theses", label: "Тезисы" },
-  { id: "telegram", label: "Пост для Telegram" },
+const ACTIONS: { id: Action; label: string; title: string }[] = [
+  {
+    id: "summary",
+    label: "О чем статья?",
+    title: "Сгенерировать краткое содержание статьи на русском",
+  },
+  {
+    id: "theses",
+    label: "Тезисы",
+    title: "Извлечь основные тезисы из статьи",
+  },
+  {
+    id: "telegram",
+    label: "Пост для Telegram",
+    title: "Подготовить пост для публикации в Telegram",
+  },
 ];
 
 const ACTION_BUTTON_STYLES: Record<
@@ -271,9 +283,11 @@ export default function ReferentApp() {
 
   const isBusy = loadingParse || loadingTranslate;
 
-  const loadingText = loadingParse
-    ? "Загрузка и разбор статьи..."
-    : "Тружусь, потерпите...";
+  const processStatus = loadingParse
+    ? "Загружаю статью…"
+    : loadingTranslate
+      ? "Пишу с помощью ИИ…"
+      : null;
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
@@ -294,18 +308,21 @@ export default function ReferentApp() {
               htmlFor="article-url"
               className="block text-sm font-medium text-zinc-800"
             >
-              URL англоязычной статьи
+              URL статьи
             </label>
             <input
               id="article-url"
               type="url"
               inputMode="url"
-              placeholder="https://example.com/article"
+              placeholder="Введите URL статьи, например: https://example.com/article"
               value={url}
               onChange={(event) => setUrl(event.target.value)}
               className="w-full rounded-xl border border-zinc-300 bg-white px-4 py-3 text-zinc-900 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
               autoComplete="url"
             />
+            <p className="text-xs text-zinc-500">
+              Укажите ссылку на англоязычную статью.
+            </p>
             {error ? (
               <p className="text-sm text-red-600" role="alert">
                 {error}
@@ -323,6 +340,7 @@ export default function ReferentApp() {
                   <button
                     key={action.id}
                     type="button"
+                    title={action.title}
                     disabled={isBusy}
                     onClick={() => void runAction(action.id)}
                     className={`rounded-xl px-4 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${
@@ -338,12 +356,20 @@ export default function ReferentApp() {
             </div>
           </div>
 
+          {processStatus ? (
+            <div
+              aria-live="polite"
+              className="flex items-center gap-2.5 rounded-lg border border-sky-100 bg-sky-50/80 px-4 py-2.5 text-sm text-sky-800"
+            >
+              <span className="inline-block h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-sky-200 border-t-sky-600" />
+              <span>{processStatus}</span>
+            </div>
+          ) : null}
+
           <ResultBox
             title="Результат"
             badge={resultBadge ?? undefined}
-            loading={isBusy}
             filled={Boolean(result)}
-            loadingText={loadingText}
             emptyText="Здесь появится результат перевода."
           >
             {result ? (
