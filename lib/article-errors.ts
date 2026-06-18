@@ -1,3 +1,10 @@
+import {
+  AI_TIMEOUT_ERROR_MESSAGE,
+  ARTICLE_LOAD_ERROR_MESSAGE,
+  ARTICLE_PARSE_ERROR_MESSAGE,
+  GENERIC_AI_ERROR_MESSAGE,
+} from "@/lib/client-error-messages";
+
 export class ArticleUnavailableError extends Error {
   constructor(message: string) {
     super(message);
@@ -55,34 +62,18 @@ export function friendlyAiErrorMessage(
   }
 
   if (raw.includes("abort") || raw.includes("timeout") || raw.includes("timed out")) {
-    return "ИИ слишком долго отвечает. Попробуйте более короткую статью или повторите позже.";
+    return AI_TIMEOUT_ERROR_MESSAGE;
   }
 
-  return "Не удалось получить ответ от ИИ. Попробуйте ещё раз.";
+  return GENERIC_AI_ERROR_MESSAGE;
 }
 
-function friendlyFetchMessage(status: number) {
-  if (status === 403 || status === 401) {
-    return "К этой статье нет доступа. Сайт не отдаёт текст автоматически — попробуйте другую ссылку.";
-  }
-
-  if (status === 404) {
-    return "Статья не найдена. Проверьте ссылку: возможно, страница удалена или адрес указан с опечаткой.";
-  }
-
-  if (status >= 500) {
-    return "Сайт сейчас недоступен. Попробуйте позже или выберите другую статью.";
-  }
-
-  return "Не получилось открыть эту статью. Попробуйте другую ссылку.";
-}
-
-export function throwForHttpStatus(status: number): never {
-  throw new ArticleUnavailableError(friendlyFetchMessage(status));
+export function throwForHttpStatus(_status: number): never {
+  throw new ArticleUnavailableError(ARTICLE_LOAD_ERROR_MESSAGE);
 }
 
 export function throwForFetchFailure(): never {
-  throw new ArticleUnavailableError(
-    "Не удалось связаться с сайтом. Проверьте интернет и попробуйте ещё раз.",
-  );
+  throw new ArticleUnavailableError(ARTICLE_LOAD_ERROR_MESSAGE);
 }
+
+export { AI_TIMEOUT_ERROR_MESSAGE, ARTICLE_LOAD_ERROR_MESSAGE, ARTICLE_PARSE_ERROR_MESSAGE };

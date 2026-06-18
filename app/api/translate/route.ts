@@ -1,5 +1,6 @@
 import { buildTranslationMessages, type AiAction } from "@/lib/ai-actions";
 import { AiServiceError } from "@/lib/article-errors";
+import { GENERIC_AI_ERROR_MESSAGE } from "@/lib/client-error-messages";
 import type { ParsedArticle } from "@/lib/parse-article";
 import { chatCompletion } from "@/lib/openrouter";
 import { NextResponse } from "next/server";
@@ -49,9 +50,9 @@ export async function POST(request: Request) {
       );
     }
 
-    const message =
-      error instanceof Error ? error.message : "Не удалось перевести статью.";
-
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json(
+      { error: GENERIC_AI_ERROR_MESSAGE, code: "ai_error" },
+      { status: 500 },
+    );
   }
 }

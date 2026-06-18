@@ -1,5 +1,6 @@
 import {
   ArticleUnavailableError,
+  ARTICLE_PARSE_ERROR_MESSAGE,
   throwForFetchFailure,
   throwForHttpStatus,
 } from "@/lib/article-errors";
@@ -203,9 +204,7 @@ export async function fetchAndParseArticle(url: string): Promise<ParsedArticle> 
   const article = parseArticleHtml(html);
 
   if (!article.title && !article.content) {
-    throw new ArticleUnavailableError(
-      "На этой странице не удалось найти текст статьи. Возможно, нужен другой URL.",
-    );
+    throw new ArticleUnavailableError(ARTICLE_PARSE_ERROR_MESSAGE);
   }
 
   return article;

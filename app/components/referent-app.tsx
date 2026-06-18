@@ -1,12 +1,22 @@
 "use client";
 
 import BlogContent from "./blog-content";
+import { Alert } from "./ui/alert";
 import {
   AiServiceError,
   ArticleUnavailableError,
   isAiServiceError,
   isArticleUnavailableError,
 } from "@/lib/article-errors";
+import {
+  AI_TIMEOUT_ERROR_MESSAGE,
+  ARTICLE_LOAD_ERROR_MESSAGE,
+  ARTICLE_PARSE_ERROR_MESSAGE,
+  GENERIC_ACTION_ERROR_MESSAGE,
+  GENERIC_AI_ERROR_MESSAGE,
+  VALIDATION_EMPTY_URL_MESSAGE,
+  VALIDATION_INVALID_URL_MESSAGE,
+} from "@/lib/client-error-messages";
 import { useRef, useState, type ReactNode } from "react";
 
 type Action = "summary" | "theses" | "telegram";
@@ -122,11 +132,17 @@ function ResultBox({
 }
 
 async function fetchArticle(url: string): Promise<ParsedArticle> {
-  const response = await fetch("/api/parse", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ url }),
-  });
+  let response: Response;
+
+  try {
+    response = await fetch("/api/parse", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url }),
+    });
+  } catch {
+    throw new ArticleUnavailableError(ARTICLE_LOAD_ERROR_MESSAGE);
+  }
 
   const article = (await response.json()) as ParsedArticle & {
     error?: string;
@@ -134,11 +150,15 @@ async function fetchArticle(url: string): Promise<ParsedArticle> {
   };
 
   if (!response.ok) {
-    if (article.code === "unavailable" && article.error) {
-      throw new ArticleUnavailableError(article.error);
+    if (article.code === "unavailable") {
+      throw new ArticleUnavailableError(
+        article.error === ARTICLE_PARSE_ERROR_MESSAGE
+          ? ARTICLE_PARSE_ERROR_MESSAGE
+          : ARTICLE_LOAD_ERROR_MESSAGE,
+      );
     }
 
-    throw new Error(article.error ?? "Не удалось распарсить статью.");
+    throw new ArticleUnavailableError(ARTICLE_LOAD_ERROR_MESSAGE);
   }
 
   return article;
@@ -149,6 +169,9 @@ export default function ReferentApp() {
   const [activeAction, setActiveAction] = useState<Action | null>(null);
   const [resultBadge, setResultBadge] = useState<string | null>(null);
   const [resultIsNotice, setResultIsNotice] = useState(false);
+  const [resultNoticeKind, setResultNoticeKind] = useState<"article" | "ai" | null>(
+    null,
+  );
   const [result, setResult] = useState("");
   const [loadingParse, setLoadingParse] = useState(false);
   const [loadingTranslate, setLoadingTranslate] = useState(false);
@@ -159,12 +182,12 @@ export default function ReferentApp() {
     const trimmedUrl = url.trim();
 
     if (!trimmedUrl) {
-      setError("Введите URL англоязычной статьи.");
+      setError(VALIDATION_EMPTY_URL_MESSAGE);
       return null;
     }
 
     if (!isValidUrl(trimmedUrl)) {
-      setError("Укажите корректный URL, начинающийся с http:// или https://.");
+      setError(VALIDATION_INVALID_URL_MESSAGE);
       return null;
     }
 
@@ -185,6 +208,7 @@ export default function ReferentApp() {
     setResultBadge(RESULT_BADGES[action]);
     setResult("");
     setResultIsNotice(false);
+    setResultNoticeKind(null);
     setLoadingParse(true);
 
     try {
@@ -220,12 +244,10 @@ export default function ReferentApp() {
           fetchError instanceof DOMException &&
           fetchError.name === "AbortError"
         ) {
-          throw new AiServiceError(
-            "ИИ слишком долго отвечает. Попробуйте более короткую статью или повторите позже.",
-          );
+          throw new AiServiceError(AI_TIMEOUT_ERROR_MESSAGE);
         }
 
-        throw fetchError;
+        throw new AiServiceError(GENERIC_AI_ERROR_MESSAGE);
       } finally {
         clearTimeout(timeoutId);
       }
@@ -241,14 +263,15 @@ export default function ReferentApp() {
       }
 
       if (!response.ok) {
-        if (data.code === "ai_error" && data.error) {
-          throw new AiServiceError(data.error);
+        if (data.code === "ai_error") {
+          throw new AiServiceError(data.error ?? GENERIC_AI_ERROR_MESSAGE);
         }
 
-        throw new Error(data.error ?? "Не удалось обработать статью.");
+        throw new AiServiceError(GENERIC_AI_ERROR_MESSAGE);
       }
 
       setResultIsNotice(false);
+      setResultNoticeKind(null);
       setResult(data.result ?? "");
     } catch (actionError) {
       if (requestId !== requestIdRef.current) {
@@ -258,21 +281,19 @@ export default function ReferentApp() {
       if (isArticleUnavailableError(actionError)) {
         setResultBadge(null);
         setResultIsNotice(true);
+        setResultNoticeKind("article");
         setResult(actionError.message);
         return;
       }
 
       if (isAiServiceError(actionError)) {
         setResultIsNotice(true);
+        setResultNoticeKind("ai");
         setResult(actionError.message);
         return;
       }
 
-      const message =
-        actionError instanceof Error
-          ? actionError.message
-          : "Не удалось обработать статью.";
-      setError(message);
+      setError(GENERIC_ACTION_ERROR_MESSAGE);
     } finally {
       if (requestId === requestIdRef.current) {
         setLoadingParse(false);
@@ -324,9 +345,9 @@ export default function ReferentApp() {
               Укажите ссылку на англоязычную статью.
             </p>
             {error ? (
-              <p className="text-sm text-red-600" role="alert">
+              <Alert title="Проверьте ссылку" variant="destructive">
                 {error}
-              </p>
+              </Alert>
             ) : null}
           </div>
 
@@ -374,9 +395,18 @@ export default function ReferentApp() {
           >
             {result ? (
               resultIsNotice ? (
-                <div className="flex min-h-36 items-center justify-center rounded-xl border border-amber-100 bg-amber-50/80 px-6 py-8 text-center text-sm leading-7 text-zinc-700">
+                <Alert
+                  title={
+                    resultNoticeKind === "ai"
+                      ? "Ошибка обработки"
+                      : result === ARTICLE_PARSE_ERROR_MESSAGE
+                        ? "Текст не найден"
+                        : "Статья недоступна"
+                  }
+                  variant={resultNoticeKind === "ai" ? "destructive" : "warning"}
+                >
                   {result}
-                </div>
+                </Alert>
               ) : (
                 <BlogContent content={result} />
               )
