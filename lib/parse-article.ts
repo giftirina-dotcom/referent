@@ -35,6 +35,24 @@ function normalizeText(value: string) {
   return value.replace(/\s+/g, " ").trim();
 }
 
+function normalizeMultilineText(value: string) {
+  return value
+    .split("\n")
+    .map((line) => normalizeText(line))
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+function extractElementTextWithBreaks(
+  $: cheerio.CheerioAPI,
+  element: Parameters<cheerio.CheerioAPI>[0],
+) {
+  const clone = $(element).clone();
+  clone.find("br").replaceWith("\n");
+  clone.find(REMOVABLE_SELECTORS).remove();
+  return normalizeMultilineText(clone.text());
+}
+
 function extractElementText($: cheerio.CheerioAPI, element: Parameters<cheerio.CheerioAPI>[0]) {
   const clone = $(element).clone();
   clone.find(REMOVABLE_SELECTORS).remove();
@@ -144,6 +162,26 @@ function extractDate($: cheerio.CheerioAPI) {
   return extractDateFromJsonLd($);
 }
 
+function pickLongestCellText(
+  $: cheerio.CheerioAPI,
+  selector: string,
+  useBreaks = false,
+) {
+  let bestText = "";
+
+  $(selector).each((_, element) => {
+    const text = useBreaks
+      ? extractElementTextWithBreaks($, element)
+      : extractElementText($, element);
+
+    if (text.length > bestText.length) {
+      bestText = text;
+    }
+  });
+
+  return bestText.length >= 120 ? bestText : null;
+}
+
 function extractContent($: cheerio.CheerioAPI) {
   for (const selector of CONTENT_SELECTORS) {
     const nodes = $(selector);
@@ -164,6 +202,16 @@ function extractContent($: cheerio.CheerioAPI) {
 
   if (paragraphs.length > 0) {
     return paragraphs.join("\n\n");
+  }
+
+  const tableCellText = pickLongestCellText($, "td", true);
+  if (tableCellText) {
+    return tableCellText;
+  }
+
+  const blockText = pickLongestCellText($, "blockquote, div, section, font");
+  if (blockText) {
+    return blockText;
   }
 
   return null;
@@ -301,6 +349,10 @@ export async function fetchAndParseArticle(url: string): Promise<ParsedArticle> 
   const article = parseArticleHtml(html);
 
   if (!article.title && !article.content) {
+    throw new ArticleUnavailableError(ARTICLE_PARSE_ERROR_MESSAGE);
+  }
+
+  if (!article.content?.trim() || article.content.trim().length < 80) {
     throw new ArticleUnavailableError(ARTICLE_PARSE_ERROR_MESSAGE);
   }
 
