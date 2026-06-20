@@ -86,6 +86,10 @@ export function friendlyAiErrorMessage(
     raw.includes("huggingface_api_key") ||
     raw.includes("не задан")
   ) {
+    if (process.env.VERCEL) {
+      return "Сервис ИИ не настроен: задайте ключи API в Vercel → Settings → Environment Variables (OPENROUTER_API_KEY и при необходимости HUGGINGFACE_API_KEY).";
+    }
+
     return "Сервис ИИ не настроен: ключ API не задан. Проверьте файл .env.local.";
   }
 
