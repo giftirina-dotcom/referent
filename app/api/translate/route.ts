@@ -1,9 +1,15 @@
-import { buildTranslationMessages, type AiAction } from "@/lib/ai-actions";
+import {
+  buildTranslationMessages,
+  MAX_OUTPUT_TOKENS,
+  type AiAction,
+} from "@/lib/ai-actions";
 import { AiServiceError } from "@/lib/article-errors";
 import { GENERIC_AI_ERROR_MESSAGE } from "@/lib/client-error-messages";
 import type { ParsedArticle } from "@/lib/parse-article";
 import { chatCompletion } from "@/lib/openrouter";
 import { NextResponse } from "next/server";
+
+export const maxDuration = 300;
 
 const VALID_ACTIONS = new Set<AiAction>([
   "translate",
@@ -39,7 +45,12 @@ export async function POST(request: Request) {
     const messages = buildTranslationMessages(article, action, {
       sourceUrl: body.sourceUrl?.trim() || undefined,
     });
-    const result = await chatCompletion(messages);
+    const result = await chatCompletion(
+      messages,
+      undefined,
+      undefined,
+      MAX_OUTPUT_TOKENS[action],
+    );
 
     return NextResponse.json({ result });
   } catch (error) {

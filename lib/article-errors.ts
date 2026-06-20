@@ -64,6 +64,14 @@ export function friendlyAiErrorMessage(
     return "Слишком много запросов к ИИ. Подождите минуту и попробуйте снова.";
   }
 
+  if (
+    status === 402 ||
+    rawMessage?.toLowerCase().includes("requires more credits") ||
+    rawMessage?.toLowerCase().includes("can only afford")
+  ) {
+    return "На балансе OpenRouter недостаточно кредитов. Пополните счёт на openrouter.ai/settings/credits или уменьшите длину статьи.";
+  }
+
   if (status === 401 || status === 403) {
     if (
       rawMessage?.toLowerCase().includes("inference providers") ||

@@ -37,6 +37,7 @@ export async function POST(request: Request) {
         messages,
         undefined,
         ILLUSTRATION_PROMPT_TIMEOUT_MS,
+        600,
       );
       prompt = normalizeIllustrationPrompt(rawPrompt);
     } catch (error) {

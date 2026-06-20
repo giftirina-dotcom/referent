@@ -2,6 +2,14 @@ import type { ParsedArticle } from "@/lib/parse-article";
 
 export type AiAction = "translate" | "summary" | "theses" | "telegram";
 
+/** Лимит ответа OpenRouter по типу задачи (без max_tokens API резервирует до 65536 токенов). */
+export const MAX_OUTPUT_TOKENS: Record<AiAction, number> = {
+  summary: 1200,
+  theses: 2500,
+  telegram: 1500,
+  translate: 16_000,
+};
+
 export type BuildMessagesOptions = {
   sourceUrl?: string;
 };

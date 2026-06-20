@@ -70,11 +70,15 @@ function extractMessageContent(message?: ChatCompletionMessage): string | null {
   return null;
 }
 
+/** Лимит по умолчанию: без max_tokens OpenRouter резервирует до 65536 и может вернуть 402. */
+export const DEFAULT_MAX_TOKENS = 4096;
+
 async function requestChatCompletion(
   apiKey: string,
   messages: ChatMessage[],
   model: string,
   timeoutMs: number,
+  maxTokens: number,
 ) {
   const response = await fetch(`${OPENROUTER_URL}/chat/completions`, {
     method: "POST",
@@ -88,6 +92,7 @@ async function requestChatCompletion(
       model,
       messages,
       temperature: 0.3,
+      max_tokens: maxTokens,
     }),
     signal: AbortSignal.timeout(timeoutMs),
   });
@@ -107,6 +112,7 @@ export async function chatCompletion(
   messages: ChatMessage[],
   model = DEEPSEEK_MODEL,
   timeoutMs = OPENROUTER_TIMEOUT_MS,
+  maxTokens = DEFAULT_MAX_TOKENS,
 ): Promise<string> {
   const apiKey = process.env.OPENROUTER_API_KEY;
 
@@ -122,6 +128,7 @@ export async function chatCompletion(
       messages,
       model,
       timeoutMs,
+      maxTokens,
     );
 
     if (!content) {
@@ -130,6 +137,7 @@ export async function chatCompletion(
         messages,
         model,
         timeoutMs,
+        maxTokens,
       );
     }
 
