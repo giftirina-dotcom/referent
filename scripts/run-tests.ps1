@@ -136,6 +136,10 @@ if ($translateResult) {
     Add-Result "T-33" "Translate markdown" $false "missing result"
 }
 
+Write-Host "=== T-26 illustration ==="
+$r = Invoke-Api "/api/illustration" @{}
+Add-Result "T-26" "Illustration no article" ((-not $r.Ok) -and ($r.Status -eq 400)) "Status $($r.Status)"
+
 Write-Host "=== T-50 T-51 ==="
 $r = Invoke-Api "/api/process" @{ url = $wikiUrl; action = "summary" }
 Add-Result "T-50" "Process legacy 501" ((-not $r.Ok) -and ($r.Status -eq 501)) "Status $($r.Status)"

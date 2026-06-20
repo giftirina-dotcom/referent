@@ -15,6 +15,8 @@ export type ParsedArticle = {
 const CONTENT_SELECTORS = [
   "article",
   '[role="article"]',
+  "#mw-content-text",
+  ".mw-parser-output",
   ".post-content",
   ".entry-content",
   ".article-content",
@@ -184,23 +186,118 @@ const BROWSER_HEADERS = {
   "Accept-Language": "en-US,en;q=0.9,ru;q=0.8",
 };
 
-export async function fetchAndParseArticle(url: string): Promise<ParsedArticle> {
-  let response: Response;
+/** Общий таймаут загрузки страницы (мс). */
+const FETCH_TIMEOUT_MS = 60_000;
 
+/** Таймаут установки TCP-соединения (мс). По умолчанию в Node.js — 10 с, этого мало для многих сайтов. */
+const CONNECT_TIMEOUT_MS = 45_000;
+
+const FETCH_ATTEMPTS = 3;
+
+const RETRY_DELAY_MS = 1_500;
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+type UndiciFetch = typeof globalThis.fetch;
+
+type FetchClient = {
+  fetch: UndiciFetch;
+  dispatcher?: unknown;
+};
+
+async function loadFetchClient(): Promise<FetchClient> {
   try {
-    response = await fetch(url, {
-      headers: BROWSER_HEADERS,
-      redirect: "follow",
-    });
+    const undici = (await import(
+      /* webpackIgnore: true */ "undici"
+    )) as {
+      fetch: UndiciFetch;
+      Agent: new (options?: {
+        connectTimeout?: number;
+        headersTimeout?: number;
+        bodyTimeout?: number;
+      }) => unknown;
+    };
+
+    return {
+      fetch: undici.fetch,
+      dispatcher: new undici.Agent({
+        connectTimeout: CONNECT_TIMEOUT_MS,
+        headersTimeout: FETCH_TIMEOUT_MS,
+        bodyTimeout: FETCH_TIMEOUT_MS,
+      }),
+    };
   } catch {
+    return { fetch: globalThis.fetch };
+  }
+}
+
+function isRetriableFetchError(error: unknown) {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  const message = error.message.toLowerCase();
+  const cause = error.cause;
+  const causeCode =
+    cause && typeof cause === "object" && "code" in cause
+      ? String(cause.code)
+      : "";
+
+  return (
+    message.includes("timeout") ||
+    message.includes("timed out") ||
+    message.includes("fetch failed") ||
+    causeCode.includes("TIMEOUT") ||
+    causeCode.includes("ECONNRESET") ||
+    causeCode.includes("ECONNREFUSED")
+  );
+}
+
+async function fetchArticleHtml(url: string, client: FetchClient) {
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= FETCH_ATTEMPTS; attempt += 1) {
+    try {
+      const response = await client.fetch(url, {
+        headers: BROWSER_HEADERS,
+        redirect: "follow",
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+        ...(client.dispatcher ? { dispatcher: client.dispatcher } : {}),
+      });
+
+      if (!response.ok) {
+        throwForHttpStatus(response.status);
+      }
+
+      return await response.text();
+    } catch (error) {
+      lastError = error;
+
+      if (attempt < FETCH_ATTEMPTS && isRetriableFetchError(error)) {
+        await sleep(RETRY_DELAY_MS);
+        continue;
+      }
+
+      if (isRetriableFetchError(error) || error instanceof TypeError) {
+        throwForFetchFailure();
+      }
+
+      throw error;
+    }
+  }
+
+  if (isRetriableFetchError(lastError) || lastError instanceof TypeError) {
     throwForFetchFailure();
   }
 
-  if (!response.ok) {
-    throwForHttpStatus(response.status);
-  }
+  throw lastError;
+}
 
-  const html = await response.text();
+export async function fetchAndParseArticle(url: string): Promise<ParsedArticle> {
+  const client = await loadFetchClient();
+  const html = await fetchArticleHtml(url, client);
   const article = parseArticleHtml(html);
 
   if (!article.title && !article.content) {

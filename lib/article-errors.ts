@@ -26,7 +26,28 @@ export class AiServiceError extends Error {
 }
 
 export function isAiServiceError(error: unknown): error is AiServiceError {
-  return error instanceof AiServiceError;
+  return (
+    error instanceof AiServiceError ||
+    (error instanceof Error && error.name === "AiServiceError")
+  );
+}
+
+export function normalizeAiServiceError(error: unknown): AiServiceError {
+  if (error instanceof AiServiceError) {
+    return error;
+  }
+
+  if (error instanceof Error && error.name === "AiServiceError") {
+    return new AiServiceError(error.message);
+  }
+
+  if (error instanceof Error) {
+    return new AiServiceError(
+      friendlyAiErrorMessage(undefined, String(error)),
+    );
+  }
+
+  return new AiServiceError(GENERIC_AI_ERROR_MESSAGE);
 }
 
 export function isResultNoticeError(
@@ -44,6 +65,13 @@ export function friendlyAiErrorMessage(
   }
 
   if (status === 401 || status === 403) {
+    if (
+      rawMessage?.toLowerCase().includes("inference providers") ||
+      rawMessage?.toLowerCase().includes("insufficient permissions")
+    ) {
+      return "Ключ Hugging Face не имеет доступа к Inference Providers. Создайте новый токен на huggingface.co/settings/tokens с разрешением «Make calls to Inference Providers» и обновите HUGGINGFACE_API_KEY в .env.local.";
+    }
+
     return "Не удалось подключиться к сервису ИИ. Проверьте ключ API в файле .env.local.";
   }
 
@@ -53,8 +81,16 @@ export function friendlyAiErrorMessage(
 
   const raw = rawMessage?.toLowerCase() ?? "";
 
-  if (raw.includes("openrouter_api_key") || raw.includes("не задан")) {
+  if (
+    raw.includes("openrouter_api_key") ||
+    raw.includes("huggingface_api_key") ||
+    raw.includes("не задан")
+  ) {
     return "Сервис ИИ не настроен: ключ API не задан. Проверьте файл .env.local.";
+  }
+
+  if (raw.includes("hugging face") || raw.includes("huggingface")) {
+    return "Не удалось сгенерировать изображение. Проверьте ключ Hugging Face в .env.local.";
   }
 
   if (raw.includes("не вернул текст")) {

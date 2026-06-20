@@ -19,7 +19,7 @@ import {
 } from "@/lib/client-error-messages";
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 
-type Action = "summary" | "theses" | "telegram";
+type Action = "summary" | "theses" | "telegram" | "illustration";
 
 type ParsedArticle = {
   date: string | null;
@@ -43,6 +43,11 @@ const ACTIONS: { id: Action; label: string; title: string }[] = [
     label: "Пост для Telegram",
     title: "Подготовить пост для публикации в Telegram",
   },
+  {
+    id: "illustration",
+    label: "Иллюстрация",
+    title: "Сгенерировать иллюстрацию по теме статьи",
+  },
 ];
 
 const ACTION_BUTTON_STYLES: Record<
@@ -64,16 +69,25 @@ const ACTION_BUTTON_STYLES: Record<
       "border border-purple-300 bg-purple-200 text-purple-950 hover:bg-purple-300",
     active: "border border-purple-400 bg-purple-400 text-purple-950 shadow-sm",
   },
+  illustration: {
+    default:
+      "border border-rose-300 bg-rose-200 text-rose-950 hover:bg-rose-300",
+    active: "border border-rose-400 bg-rose-400 text-rose-950 shadow-sm",
+  },
 };
 
 const RESULT_BADGES: Record<Action, string> = {
   summary: "Краткое содержание",
   theses: "Тезисы",
   telegram: "Пост для Telegram",
+  illustration: "Иллюстрация",
 };
 
 /** Таймаут ожидания ответа /api/translate в браузере (мс). */
 const TRANSLATE_CLIENT_TIMEOUT_MS = 180_000;
+
+/** Таймаут ожидания /api/illustration (промпт + генерация изображения). */
+const ILLUSTRATION_CLIENT_TIMEOUT_MS = 420_000;
 
 function isValidUrl(value: string) {
   try {
@@ -193,6 +207,7 @@ export default function ReferentApp() {
     null,
   );
   const [result, setResult] = useState("");
+  const [illustrationImage, setIllustrationImage] = useState("");
   const [loadingParse, setLoadingParse] = useState(false);
   const [loadingTranslate, setLoadingTranslate] = useState(false);
   const [error, setError] = useState("");
@@ -216,9 +231,21 @@ export default function ReferentApp() {
     setResultNoticeKind(null);
     setCopyLabel("Копировать");
     setResult("");
+    setIllustrationImage("");
     setLoadingParse(false);
     setLoadingTranslate(false);
     setError("");
+  }
+
+  function downloadIllustration() {
+    if (!illustrationImage) {
+      return;
+    }
+
+    const link = document.createElement("a");
+    link.href = illustrationImage;
+    link.download = "illustration.png";
+    link.click();
   }
 
   async function copyResult() {
@@ -244,10 +271,10 @@ export default function ReferentApp() {
   }
 
   useEffect(() => {
-    if (result && !resultIsNotice) {
+    if ((result || illustrationImage) && !resultIsNotice) {
       resultSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }
-  }, [result, resultIsNotice]);
+  }, [result, illustrationImage, resultIsNotice]);
 
   useEffect(() => {
     return () => {
@@ -286,6 +313,7 @@ export default function ReferentApp() {
     setActiveAction(action);
     setResultBadge(RESULT_BADGES[action]);
     setResult("");
+    setIllustrationImage("");
     setResultIsNotice(false);
     setResultNoticeKind(null);
     setCopyLabel("Копировать");
@@ -301,24 +329,34 @@ export default function ReferentApp() {
       setLoadingTranslate(true);
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(
-        () => controller.abort(),
-        TRANSLATE_CLIENT_TIMEOUT_MS,
-      );
+      const timeoutMs =
+        action === "illustration"
+          ? ILLUSTRATION_CLIENT_TIMEOUT_MS
+          : TRANSLATE_CLIENT_TIMEOUT_MS;
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
       let response: Response;
 
       try {
-        response = await fetch("/api/translate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            article,
-            action,
-            ...(action === "telegram" ? { sourceUrl: trimmedUrl } : {}),
-          }),
-          signal: controller.signal,
-        });
+        if (action === "illustration") {
+          response = await fetch("/api/illustration", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ article }),
+            signal: controller.signal,
+          });
+        } else {
+          response = await fetch("/api/translate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              article,
+              action,
+              ...(action === "telegram" ? { sourceUrl: trimmedUrl } : {}),
+            }),
+            signal: controller.signal,
+          });
+        }
       } catch (fetchError) {
         if (
           fetchError instanceof DOMException &&
@@ -334,6 +372,8 @@ export default function ReferentApp() {
 
       const data = (await response.json()) as {
         result?: string;
+        prompt?: string;
+        image?: string;
         error?: string;
         code?: string;
       };
@@ -352,6 +392,14 @@ export default function ReferentApp() {
 
       setResultIsNotice(false);
       setResultNoticeKind(null);
+
+      if (action === "illustration") {
+        setIllustrationImage(data.image ?? "");
+        setResult("");
+        return;
+      }
+
+      setIllustrationImage("");
       setResult(data.result ?? "");
     } catch (actionError) {
       if (requestId !== requestIdRef.current) {
@@ -387,8 +435,14 @@ export default function ReferentApp() {
   const processStatus = loadingParse
     ? "Загружаю статью…"
     : loadingTranslate
-      ? "Обрабатываю с помощью ИИ…"
+      ? activeAction === "illustration"
+        ? "Создаю промпт и генерирую иллюстрацию… Это может занять до 5 минут."
+        : "Обрабатываю с помощью ИИ…"
       : null;
+
+  const hasResult = Boolean(result) || Boolean(illustrationImage);
+  const isIllustrationResult =
+    activeAction === "illustration" && Boolean(illustrationImage) && !resultIsNotice;
 
   return (
     <div className="mx-auto flex w-full min-w-0 max-w-3xl flex-col gap-5 sm:gap-6">
@@ -480,11 +534,20 @@ export default function ReferentApp() {
           <ResultBox
             title="Результат"
             badge={resultBadge ?? undefined}
-            filled={Boolean(result)}
+            filled={hasResult}
             sectionRef={resultSectionRef}
-            emptyText="Здесь появится результат перевода."
+            emptyText="Здесь появится результат обработки."
             headerActions={
-              result ? (
+              isIllustrationResult ? (
+                <button
+                  type="button"
+                  title="Скачать иллюстрацию"
+                  onClick={downloadIllustration}
+                  className={COPY_BUTTON_CLASS}
+                >
+                  Скачать
+                </button>
+              ) : result ? (
                 <button
                   type="button"
                   title="Скопировать результат в буфер обмена"
@@ -500,7 +563,7 @@ export default function ReferentApp() {
               ) : null
             }
           >
-            {result ? (
+            {hasResult ? (
               resultIsNotice ? (
                 <Alert
                   title={
@@ -514,6 +577,12 @@ export default function ReferentApp() {
                 >
                   {result}
                 </Alert>
+              ) : isIllustrationResult ? (
+                <img
+                  src={illustrationImage}
+                  alt="Сгенерированная иллюстрация по теме статьи"
+                  className="mx-auto max-h-[32rem] w-full rounded-xl border border-zinc-200 object-contain"
+                />
               ) : (
                 <>
                   {activeAction === "telegram" ? (
